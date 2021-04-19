@@ -1,0 +1,151 @@
+
+<html>
+    <head>
+        <title>4 - Torus</title>
+
+        <script src="https://d3js.org/d3.v4.js"></script>
+        <script src="https://d3js.org/d3-hexbin.v0.2.min.js"></script>
+        
+        <script src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>    
+    </head>
+    <body>
+    </body> 
+</html>
+
+<script>    
+    let scene, camera, renderer, torus;
+    let ADD = 0.02, theta = 0;
+
+    let createTorus = function(point) {
+        let geometry = new THREE.CylinderGeometry(4, 4, point.length / 10, 30);
+        
+        let material = new THREE.MeshPhongMaterial({color: 0xffffff, 
+                                                    wireframe: false});
+        
+        
+        torus = new THREE.Mesh( geometry, material );
+        torus.castShadow = true;
+        torus.receiveShadow = true;
+
+        torus.position.set(point.x, 0, point.y)
+
+        scene.add(torus);
+    };
+    
+    
+    // set up the environment - 
+    // initiallize scene, camera, objects and renderer
+    let init = function() {
+        // create the scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        
+        // create an locate the camera
+        camera = new THREE.PerspectiveCamera(75, 
+                        window.innerWidth / window.innerHeight, 
+                        1, 1000);
+        
+        camera.rotation.x = 3 * Math.PI / 2
+        camera.position.set(100, 200, 100)
+
+        // Point Light
+        pointLight = new THREE.PointLight( 0xffffff, 1, 220 );
+        pointLight.position.set( 80, 100, 80 );
+        pointLight.castShadow = true; // default false
+        scene.add( pointLight );
+
+        //Set up shadow properties for the light
+        pointLight.shadow.mapSize.width = 512; // default
+        pointLight.shadow.mapSize.height = 512; // default
+        pointLight.shadow.camera.near = 0.5; // default
+        pointLight.shadow.camera.far = 500; // default
+
+        const light = new THREE.AmbientLight( 0x404040, 0.5 ); // soft white light
+        
+        scene.add( light );
+
+        geometry = new THREE.BoxGeometry(2000, 1, 2000);
+        material = new THREE.MeshPhongMaterial({color: 0xffffff, 
+                                    side: THREE.DoubleSide});
+        plane = new THREE.Mesh(geometry, material);
+        plane.position.y = -1;
+        plane.receiveShadow = true;
+        
+        scene.add(plane);
+        
+        drawViz()
+        
+        // create the renderer   
+        renderer = new THREE.WebGLRenderer();   
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        document.body.appendChild(renderer.domElement);
+
+    };
+
+    function drawViz(){
+        var margin = {top: 0, right: 30, bottom: 30, left: 40},
+            width  = 800 - margin.left - margin.right,
+            height = 800 - margin.top - margin.bottom;
+        
+        // read data
+        d3.csv("tree_data.csv", 
+        
+        function(data){
+            return {x: data.Longitude, y: data.Latitude}
+        },
+        
+        function(data) {
+            
+          // Add X axis
+        var x = d3.scaleLinear()
+            .domain(d3.extent(data, d => d.x))
+            .range([ 200, 0 ]);
+
+          // Add Y axis
+        var y = d3.scaleLinear()
+            .domain(d3.extent(data, d => d.y))
+            .range([ 200, 0 ]);
+        
+          // Reformat the data: d3.hexbin() needs a specific format
+          inputForHexbinFun = []
+
+          data.forEach(function(d) {
+            inputForHexbinFun.push( [x(d.x), y(d.y)] )  // Note that we had the transform value of X and Y !
+          })
+        
+          // Compute the hexbin data
+          hexbin = d3.hexbin()
+            .radius(4.5) // size of the bin in px
+            .extent([ [0, 0], [width, height] ])
+
+            pointData = hexbin(inputForHexbinFun)
+            console.log(pointData)
+
+            pointData.forEach(point =>{
+                createTorus(point)
+            }
+            )
+
+        })
+    }
+   
+    
+    // main animation loop - calls every 50-60 ms.
+    let mainLoop = function() {
+
+        pointLight.position.x = 100 + 50 * Math.sin(theta);
+        pointLight.position.z = 100 + 50 * Math.cos(theta);
+        theta += ADD;
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(mainLoop);
+    };
+    
+    ///////////////////////////////////////////////
+    init();
+    mainLoop();
+</script>
